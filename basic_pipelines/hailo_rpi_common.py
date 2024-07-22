@@ -1,6 +1,7 @@
 import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib, GObject
+from gsthailo import VideoFrame
 import os
 import argparse
 import multiprocessing
@@ -90,8 +91,8 @@ def get_default_parser():
     parser.add_argument("--dump-dot", action="store_true", help="Dump the pipeline graph to a dot file pipeline.dot")
     return parser
 
-def QUEUE(name, max_size_buffers=3, max_size_bytes=0, max_size_time=0):
-    return f"queue name={name} max-size-buffers={max_size_buffers} max-size-bytes={max_size_bytes} max-size-time={max_size_time} ! "
+def QUEUE(name, max_size_buffers=3, max_size_bytes=0, max_size_time=0, leaky="upstream"):
+    return f"queue name={name} max-size-buffers={max_size_buffers} max-size-bytes={max_size_bytes} max-size-time={max_size_time} leaky={leaky} ! "
 
 def get_source_type(input_source):
     # This function will return the source type based on the input source
@@ -163,7 +164,7 @@ class GStreamerApp:
         # Connect to hailo_display fps-measurements
         if self.options_menu.show_fps:
             print("Showing FPS")
-            self.pipeline.get_by_name("hailo_display").connect("fps-measurements", self.on_fps_measurement)
+            # self.pipeline.get_by_name("hailo_display").connect("fps-measurements", self.on_fps_measurement)
 
         # Create a GLib Main Loop
         self.loop = GLib.MainLoop()
@@ -215,10 +216,10 @@ class GStreamerApp:
         else:
             xvimagesink = hailo_display.get_by_name("xvimagesink0")
             if xvimagesink is not None:
-                xvimagesink.set_property("qos", False)
+                xvimagesink.set_property("qos", True)
         
         # Disable QoS to prevent frame drops
-        disable_qos(self.pipeline)
+        enable_qos(self.pipeline)
         
         # Start a subprocess to run the display_user_data_frame function
         if self.options_menu.use_frame:
@@ -325,3 +326,29 @@ def disable_qos(pipeline):
             # Set the 'qos' property to False
             element.set_property('qos', False)
             print(f"Set qos to False for {element.get_name()}")
+
+def enable_qos(pipeline):
+    """
+    Iterate through all elements in the given GStreamer pipeline and set the qos property to False
+    where applicable.
+    When the 'qos' property is set to True, the element will measure the time it takes to process each buffer and will drop frames if latency is too high.
+    We are running on long pipelines, so we want to disable this feature to avoid dropping frames.
+    :param pipeline: A GStreamer pipeline object
+    """
+    # Ensure the pipeline is a Gst.Pipeline instance
+    if not isinstance(pipeline, Gst.Pipeline):
+        print("The provided object is not a GStreamer Pipeline")
+        return
+
+    # Iterate through all elements in the pipeline
+    it = pipeline.iterate_elements()
+    while True:
+        result, element = it.next()
+        if result != Gst.IteratorResult.OK:
+            break
+
+        # Check if the element has the 'qos' property
+        if 'qos' in GObject.list_properties(element):
+            # Set the 'qos' property to False
+            element.set_property('qos', True)
+            print(f"Set qos to True for {element.get_name()}")
