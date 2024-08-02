@@ -61,6 +61,8 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp"
     },
-    "C_Cpp.default.compileCommands": "/home/rpi5-reanov/Documents/RoadFlea/hailo-rpi5-examples-1/builddir/compile_commands.json",
-    "C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild"
+    "C_Cpp.default.compileCommands": "/home/rpi5-reanov/Documents/RoadFlea/hailo-rpi5-examples/builddir/compile_commands.json",
+    "C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.collectModuleInfo": true
 }
